@@ -1,0 +1,19 @@
+### Get all transactions
+GET http://localhost:5000/api/transactions
+
+### Get single transaction
+GET http://localhost:5000/api/transactions/1
+
+### Create new transaction
+POST http://localhost:5000/api/transactions
+Content-Type: application/json
+
+{
+  "amount": 75.00,
+  "category": "shopping",
+  "description": "New shoes",
+  "type": "expense"
+}
+
+### Delete transaction
+DELETE http://localhost:5000/api/transactions/1
