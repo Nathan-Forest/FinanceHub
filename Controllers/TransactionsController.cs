@@ -113,6 +113,7 @@ namespace FinanceHub.Controllers
                 var transactions = await _context.Transactions.ToListAsync();
 
                 // Now sum in C# (not SQL!)
+                
                 var totalIncome = transactions
                     .Where(t => t.Type == "income")
                     .Sum(t => t.Amount);
