@@ -1,3 +1,6 @@
+[![GitHub stars](https://img.shields.io/github/stars/Nathan-Forest/FinanceHub?style=social)](https://github.com/Nathan-Forest/FinanceHub/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Nathan-Forest/FinanceHub?style=social)](https://github.com/Nathan-Forest/FinanceHub/network/members)
+
 # 💰 FinanceHub - Personal Finance Dashboard
 
 A full-stack financial management application built with **C# ASP.NET Core** backend and **vanilla JavaScript** frontend. Track income, expenses, and visualize spending patterns with interactive charts.
