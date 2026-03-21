@@ -17,11 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadSummary();
     await loadCategoryBreakdown();
     await loadRecentTransactions();
+    await loadCharts();  
     
     // Setup form submission
     document.getElementById('transaction-form').addEventListener('submit', handleAddTransaction);
 });
-
 // ============================================
 // LOAD DATA FROM API
 // ============================================
@@ -161,6 +161,7 @@ async function handleAddTransaction(e) {
             await loadSummary();
             await loadCategoryBreakdown();
             await loadRecentTransactions();
+            await loadCharts();
             
             // Show success message (optional)
             alert('Transaction added successfully! 🎉');
@@ -192,4 +193,172 @@ function formatDate(dateString) {
         day: 'numeric',
         year: 'numeric'
     }).format(date);
+}
+
+// ============================================
+// CHARTS
+// ============================================
+
+let pieChart = null;
+let lineChart = null;
+
+async function loadCharts() {
+    await loadPieChart();
+    await loadLineChart();
+}
+
+async function loadPieChart() {
+    try {
+        const response = await fetch(`${API_URL}/transactions/by-category`);
+        const data = await response.json();
+        
+        // Filter out categories with no spending
+        const chartData = data.filter(cat => cat.totalAmount > 0);
+        
+        if (chartData.length === 0) {
+            console.log('⚠️ No data for pie chart');
+            return;
+        }
+        
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (pieChart) {
+            pieChart.destroy();
+        }
+        
+        pieChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.map(cat => cat.category),
+                datasets: [{
+                    label: 'Spending by Category',
+                    data: chartData.map(cat => cat.totalAmount),
+                    backgroundColor: chartData.map(cat => cat.color),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = formatCurrency(context.parsed);
+                                const percentage = context.dataset.data
+                                    .reduce((a, b) => a + b, 0);
+                                const percent = ((context.parsed / percentage) * 100).toFixed(1);
+                                return `${label}: ${value} (${percent}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('✅ Pie chart loaded');
+    } catch (error) {
+        console.error('❌ Error loading pie chart:', error);
+    }
+}
+
+async function loadLineChart() {
+    try {
+        const response = await fetch(`${API_URL}/transactions/monthly`);
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            console.log('⚠️ No data for line chart');
+            return;
+        }
+        
+        // Sort by date (oldest first for timeline)
+        data.sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return a.month - b.month;
+        });
+        
+        const ctx = document.getElementById('lineChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (lineChart) {
+            lineChart.destroy();
+        }
+        
+        lineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => `${getMonthName(d.month)} ${d.year}`),
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: data.map(d => d.income),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Expenses',
+                        data: data.map(d => d.expenses),
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('✅ Line chart loaded');
+    } catch (error) {
+        console.error('❌ Error loading line chart:', error);
+    }
+}
+
+function getMonthName(month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
 }

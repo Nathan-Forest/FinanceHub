@@ -107,91 +107,127 @@ namespace FinanceHub.Controllers
         [HttpGet("summary")]
         public async Task<ActionResult> GetSummary()
         {
-            var transactions = await _context.Transactions
-                .Include(t => t.Category)
-                .ToListAsync();
-
-            var summary = new
+            try
             {
-                totalIncome = transactions
+                // Load all transactions into memory first
+                var transactions = await _context.Transactions.ToListAsync();
+
+                // Now sum in C# (not SQL!)
+                var totalIncome = transactions
                     .Where(t => t.Type == "income")
-                    .Sum(t => t.Amount),
+                    .Sum(t => t.Amount);
 
-                totalExpenses = transactions
+                var totalExpenses = transactions
                     .Where(t => t.Type == "expense")
-                    .Sum(t => t.Amount),
+                    .Sum(t => t.Amount);
 
-                netBalance = transactions
-                    .Where(t => t.Type == "income")
-                    .Sum(t => t.Amount) -
-                    transactions
+                var transactionCount = transactions.Count;
+
+                var averageExpense = transactions
                     .Where(t => t.Type == "expense")
-                    .Sum(t => t.Amount),
+                    .DefaultIfEmpty()
+                    .Average(t => t?.Amount ?? 0);
 
-                transactionCount = transactions.Count,
+                var summary = new
+                {
+                    totalIncome,
+                    totalExpenses,
+                    netBalance = totalIncome - totalExpenses,
+                    transactionCount,
+                    averageExpense
+                };
 
-                averageExpense = transactions
-                    .Where(t => t.Type == "expense")
-                    .Average(t => (double?)t.Amount) ?? 0
-            };
-
-            return Ok(summary);
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         // GET: api/transactions/by-category
         [HttpGet("by-category")]
         public async Task<ActionResult> GetByCategory()
         {
-            var groupedData = await _context.Transactions
-                .Include(t => t.Category)
-                .GroupBy(t => t.Category)
-                .Select(g => new
-                {
-                    category = g.Key!.Name,
-                    icon = g.Key.Icon,
-                    color = g.Key.Color,
-                    totalAmount = g.Sum(t => t.Amount),
-                    transactionCount = g.Count(),
-                    percentage = 0.0  // We'll calculate this after
-                })
-                .ToListAsync();
-
-            // Calculate percentages
-            var total = groupedData.Sum(x => x.totalAmount);
-            var result = groupedData.Select(x => new
+            try
             {
-                x.category,
-                x.icon,
-                x.color,
-                x.totalAmount,
-                x.transactionCount,
-                percentage = total > 0 ? (double)(x.totalAmount / total * 100) : 0
-            });
+                // Get all categories first
+                var categories = await _context.Categories.ToListAsync();
 
-            return Ok(result);
+                // Get all expense transactions
+                var expenseTransactions = await _context.Transactions
+                    .Where(t => t.Type == "expense")
+                    .ToListAsync();
+
+                // Group in memory to avoid EF complications
+                var groupedData = expenseTransactions
+                    .GroupBy(t => t.CategoryId)
+                    .Select(g =>
+                    {
+                        var category = categories.FirstOrDefault(c => c.Id == g.Key);
+                        return new
+                        {
+                            categoryId = g.Key,
+                            category = category?.Name ?? "Unknown",
+                            icon = category?.Icon ?? "📦",
+                            color = category?.Color ?? "#6b7280",
+                            totalAmount = g.Sum(t => t.Amount),
+                            transactionCount = g.Count()
+                        };
+                    })
+                    .ToList();
+
+                // Calculate percentages
+                var total = groupedData.Sum(x => x.totalAmount);
+                var result = groupedData.Select(x => new
+                {
+                    x.categoryId,
+                    x.category,
+                    x.icon,
+                    x.color,
+                    x.totalAmount,
+                    x.transactionCount,
+                    percentage = total > 0 ? (double)(x.totalAmount / total * 100) : 0
+                });
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         // GET: api/transactions/monthly
         [HttpGet("monthly")]
         public async Task<ActionResult> GetMonthlyBreakdown()
         {
-            var monthlyData = await _context.Transactions
-                .GroupBy(t => new { t.Date.Year, t.Date.Month })
-                .Select(g => new
-                {
-                    year = g.Key.Year,
-                    month = g.Key.Month,
-                    income = g.Where(t => t.Type == "income").Sum(t => t.Amount),
-                    expenses = g.Where(t => t.Type == "expense").Sum(t => t.Amount),
-                    net = g.Where(t => t.Type == "income").Sum(t => t.Amount) -
-                          g.Where(t => t.Type == "expense").Sum(t => t.Amount),
-                    transactionCount = g.Count()
-                })
-                .OrderByDescending(x => x.year)
-                .ThenByDescending(x => x.month)
-                .ToListAsync();
+            try
+            {
+                var transactions = await _context.Transactions.ToListAsync();
 
-            return Ok(monthlyData);
+                var monthlyData = transactions
+                    .GroupBy(t => new { t.Date.Year, t.Date.Month })
+                    .Select(g => new
+                    {
+                        year = g.Key.Year,
+                        month = g.Key.Month,
+                        income = g.Where(t => t.Type == "income").Sum(t => t.Amount),
+                        expenses = g.Where(t => t.Type == "expense").Sum(t => t.Amount),
+                        net = g.Where(t => t.Type == "income").Sum(t => t.Amount) -
+                              g.Where(t => t.Type == "expense").Sum(t => t.Amount),
+                        transactionCount = g.Count()
+                    })
+                    .OrderByDescending(x => x.year)
+                    .ThenByDescending(x => x.month)
+                    .ToList();
+
+                return Ok(monthlyData);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         // GET: api/transactions/recent
