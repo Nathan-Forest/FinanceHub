@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  financehub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: financehub
+    ports:
+      - "5002:5002"
+    volumes:
+      - financehub-data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5002
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/financehub.db
+    restart: unless-stopped
+    networks:
+      - financehub-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  financehub-network:
+    driver: bridge
+
+volumes:
+  financehub-data:
+    driver: local

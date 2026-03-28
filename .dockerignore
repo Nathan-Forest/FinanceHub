@@ -1,0 +1,40 @@
+# Binaries
+bin/
+obj/
+out/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+.vscode/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
